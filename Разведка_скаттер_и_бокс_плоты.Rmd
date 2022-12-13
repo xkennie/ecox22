@@ -1,0 +1,112 @@
+---
+title: "Разведка"
+output: html_document
+---
+
+##Библиотеки
+
+```{r}
+library(dplyr)        
+library(lmtest)       
+library(ggplot2)
+library(readr)
+```
+
+##Описательные статистики
+
+```{r}
+library(readxl)
+data_ecox <- read_excel("C:/Anastasia_/HSE/3 курс/Метрика/Проект/Доступность жилья/data_ecox.xlsx")
+summary(data_ecox$Index_ves_19)
+summary(data_ecox$Index_vtor_19)
+summary(data_ecox$sum_coef_birth_19)
+summary(data_ecox)
+sd(na.omit(data_ecox)$Index_vtor_19)
+```
+
+
+##Проверяем на выбросы
+
+```{r}  
+data_ecox %>% 
+ggplot(aes(y=Index_vtor_19))+
+  geom_boxplot() +
+  scale_y_continuous(name = "Индекс доступности жилья") +
+  ggtitle("Вторичный рынок")
+
+data_ecox %>%
+  ggplot(aes(y=Index_ves_19))+
+  geom_boxplot(width = 1) +
+  scale_y_continuous(name = "Индекс доступности жилья") +
+  ggtitle("Весь рынок")
+
+data_ecox %>%
+  ggplot(aes(y=sum_coef_birth_19))+
+  geom_boxplot() +
+  scale_y_continuous(name = "Суммарный коэффициент рождаемости") 
+
+data_ecox %>%
+  ggplot(aes(area.x, y =sum_coef_birth_19)) +
+  geom_boxplot(outlier.colour = "red", outlier.shape = 1) +
+  scale_y_continuous(name = "Суммарный коэффициент рождаемости")
+```
+
+
+##Чистим выбросы
+
+```{r}
+data_ecox_filtered = data_ecox %>%filter((Index_ves_19<50)&(Index_ves_19>25)) %>% filter(Index_vtor_19<50) %>% filter(sum_coef_birth_19<2)
+
+data_ecox_out_home_vtor = data_ecox %>%filter((Index_vtor_19>=50)|(Index_vtor_19<=26))
+
+data_ecox_out_birth = data_ecox %>%filter((sum_coef_birth_19>2))
+
+data_ecox_out_home_ves = data_ecox %>%filter((Index_ves_19>=50)|(Index_ves_19<=25))
+
+data_ecox_equal = data_ecox %>%filter((Index_ves_19 == Index_vtor_19))
+```
+
+##Смотрим совместное распределение
+
+```{r}
+data_ecox_filtered %>% 
+  ggplot(aes(y = sum_coef_birth_19, x = Index_vtor_19, color = area.x)) + 
+  geom_point() +
+  scale_x_continuous(name = "Индекс доступности жилья (Вторичный рынок)") +
+  scale_y_continuous(name = "Суммарный коэффициент рождаемости") +
+  theme(legend.title = element_blank())
+
+data_ecox_filtered %>% 
+  ggplot(aes(y = sum_coef_birth_19, x = Index_ves_19, color = area.x)) + 
+  geom_point()
+
+data_ecox %>% 
+  ggplot(aes(y = sum_coef_birth_19, x = Index_vtor_19, color = area.x)) + 
+  geom_point() +
+  scale_x_continuous(name = "Индекс доступности жилья (Вторичный рынок)") +
+  scale_y_continuous(name = "Суммарный коэффициент рождаемости") +
+  theme(legend.title = element_blank())
+
+```
+
+##Проверяем зависимость
+
+```{r}
+
+m1 <- lm(sum_coef_birth_19 ~ 1 + Index_ves_19 + I(Index_ves_19^2) , data = data_ecox_filtered)
+cov_m1 <- sandwich::vcovHC(m1, type = 'HC0') 
+coeftest(m1, df = Inf)
+
+summary(m1)
+cov_m1
+
+m2 <- lm(sum_coef_birth_19 ~ 1 + Index_vtor_19, data = data_ecox_filtered)
+cov_m2 <- sandwich::vcovHC(m2, type = 'HC0') 
+
+summary(m2)
+cov_m2
+
+coeftest(m1, vcov. = cov_m1)
+```
+
+
